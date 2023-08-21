@@ -3,8 +3,7 @@
 
 
 
-humoids is an open-source weather API and offers free access for non-commercial use. No API key is required. You can use it immediately!
-
+humoids is an open-source weather MAPI (multiverseAPI) and offers free access for commerical usage
 Head over to https://humoids.com! 
 
 ## Features
