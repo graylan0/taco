@@ -1,0 +1,118 @@
+fair.use.adaption.
+app.py
+python
+Copy code
+from flask import Flask, render_template, request, Markup
+from flask_sqlalchemy import SQLAlchemy
+import requests
+from datetime import datetime, timedelta
+import json
+import openai
+import markdown
+
+# Load OpenAI API key from config.json
+with open('config.json') as f:
+    config = json.load(f)
+    openai_api_key = config['openai_api_key']
+
+openai.api_key = openai_api_key
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///weather.db'
+db = SQLAlchemy(app)
+
+class WeatherData(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    timestamp = db.Column(db.String)
+    temperature = db.Column(db.Float)
+    soil_moisture = db.Column(db.Float)
+
+@app.route('/', methods=['GET', 'POST'])
+def weather():
+    if request.method == 'POST':
+        latitude = float(request.form['latitude'])
+        longitude = float(request.form['longitude'])
+    else:
+        latitude = 34.8298
+        longitude = -82.6015
+
+    # Get weather data and insights
+    weather_insights = get_weather_insights(latitude, longitude)
+    location_suggestions = get_location_suggestions(weather_insights)
+
+    # Convert Markdown to HTML
+    weather_insights_html = Markup(markdown.markdown(weather_insights))
+    location_suggestions_html = Markup(markdown.markdown(location_suggestions))
+
+    return render_template('weather.html', weather_insights=weather_insights_html, location_suggestions=location_suggestions_html)
+
+def get_weather_insights(latitude, longitude):
+    # Fetch weather data
+    url = f'https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&hourly=temperature_2m,soil_moisture_0_1cm&temperature_unit=fahrenheit&forecast_days=16'
+    response = requests.get(url)
+    weather_data = response.json() if response.status_code == 200 else None
+
+    # Extract temperature and soil moisture data
+    temperature_data = weather_data['hourly']['temperature_2m']
+    soil_moisture_data = weather_data['hourly']['soil_moisture_0_1cm']
+
+    # Store weather data in the database
+    current_time = datetime.now()
+    for temp, soil_moisture in zip(temperature_data, soil_moisture_data):
+        weather_data = WeatherData(latitude=latitude, longitude=longitude, timestamp=current_time.strftime("%Y-%m-%d %H:%M"), temperature=temp, soil_moisture=soil_moisture)
+        db.session.add(weather_data)
+        current_time += timedelta(hours=1)
+    db.session.commit()
+
+    # Generate insights (replace with GPT-3 insights if needed)
+    insights = "Weather insights for the selected location."
+    return insights
+
+def get_location_suggestions(weather_insights):
+    # Generate location suggestions (replace with GPT-3 suggestions if needed)
+    suggestions = "Location suggestions based on the weather insights."
+    return suggestions
+
+if __name__ == '__main__':
+    db.create_all()
+    app.run(debug=True)
+weather.html
+html
+Copy code
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather and Locations</title>
+</head>
+<body>
+    <form method="post">
+        <label for="latitude">Latitude:</label>
+        <input type="text" id="latitude" name="latitude">
+        <label for="longitude">Longitude:</label>
+        <input type="text" id="longitude" name="longitude">
+        <button type="submit">Retrieve Weather</button>
+    </form>
+
+    <h1>Weather Insights</h1>
+    {{ weather_insights }}
+
+    <h1>Location Suggestions</h1>
+    {{ location_suggestions }}
+</body>
+</html>
+Make sure to create a config.json file with your OpenAI API key:
+
+config.json
+json
+Copy code
+{
+    "openai_api_key": "YOUR_OPENAI_API_KEY_HERE"
+}
+You can customize the get_weather_insights and get_location_suggestions functions to generate insights and suggestions using GPT-3 based on your specific requirements.
+
+Run the Flask application, and you'll be able to input latitude and longitude coordinates to retrieve weather data and insights, along with location suggestions.
